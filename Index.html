@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>Spicy Dare Sync 🔥</title>
+    <meta name="description" content="Det ultimata paret-spelet för vuxna – helt anonymt, synkroniserat i realtid.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;800&display=swap');
+        body {margin:0;padding:0;background:linear-gradient(135deg,#000,#1a0000);color:#fff;font-family:'Poppins',sans-serif;min-height:100vh;display:flex;flex-direction:column;justify-content:center;overflow-x:hidden;text-align:center;}
+        .container {padding:20px;max-width:500px;margin:0 auto;width:100%;box-sizing:border-box;}
+        h1 {font-size:48px;background:linear-gradient(90deg,#ff0066,#ff99cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0 0 10px;}
+        h2 {font-size:28px;color:#ff99cc;margin:20px 0 30px;}
+        button {background:#ff0066;color:white;border:none;padding:18px 40px;font-size:24px;font-weight:600;border-radius:50px;margin:12px;box-shadow:0 10px 30px rgba(255,0,102,0.4);transition:all .3s;min-width:220px;}
+        button:active {transform:scale(0.95);}
+        button.big {padding:24px 50px;font-size:28px;}
+        button.green {background:#00c853;box-shadow:0 10px 30px rgba(0,200,83,0.4);}
+        button.red {background:#d50000;box-shadow:0 10px 30px rgba(213,0,0,0.4);}
+        button:disabled {opacity:0.5;cursor:not-allowed;}
+        input {padding:16px;font-size:20px;width:80%;max-width:320px;border-radius:30px;border:none;background:rgba(255,255,255,0.1);color:white;text-align:center;margin:15px 0;}
+        input::placeholder {color:#ff99cc;}
+        .hidden {display:none !important;}
+        .level {font-size:60px;font-weight:800;color:#ff0066;margin:20px 0;text-shadow:0 0 20px #ff0066;}
+        .progress {background:rgba(255,255,255,0.05);border-radius:20px;padding:20px;margin:30px 0;font-size:22px;}
+        .dare {font-size:32px;line-height:1.5;margin:40px 20px;padding:25px;background:rgba(255,0,102,0.1);border-radius:25px;border:1px solid rgba(255,0,102,0.3);min-height:120px;display:flex;align-items:center;justify-content:center;}
+        .finaldare {font-size:38px;font-weight:800;color:#ffd700;text-shadow:0 0 30px gold;background:rgba(255,215,0,0.1);border:2px solid gold;border-radius:30px;padding:40px 20px;margin:40px 10px;}
+        .footer {margin-top:auto;padding:30px 0 20px;font-size:14px;color:#666;}
+        .pulse {animation:pulse 2s infinite;}
+        @keyframes pulse {0%,100%{opacity:0.6;}50%{opacity:1;}}
+        .heart {font-size:40px;animation:heartbeat 1.5s ease infinite;}
+        @keyframes heartbeat {0%,100%{transform:scale(1);}50%{transform:scale(1.2);}}
+        #waitingPartner {font-size:24px;color:#ff99cc;margin:20px;}
+        #error {color:#ff3366;font-size:18px;margin:10px;padding:10px;background:rgba(255,0,0,0.2);border-radius:10px;display:none;}
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div id="intro">
+        <h1>Spicy Dare Sync 🔥</h1>
+        <p style="font-size:20px;color:#ff99cc;">Det hetaste paret-spelet – helt anonymt och synkroniserat i realtid</p>
+        <div class="heart">💕</div>
+    </div>
+
+    <div id="genderSelect">
+        <h2>Vem är du?</h2>
+        <button class="big" onclick="setGender('kvinna')">Jag är kvinna 👩</button>
+        <button class="big" onclick="setGender('man')">Jag är man 👨</button>
+    </div>
+
+    <div id="setup" class="hidden">
+        <button class="big" onclick="createRoom()">Skapa nytt rum</button>
+        <p style="margin:30px 0 10px;color:#ff99cc;">eller</p>
+        <input id="peerIdInput" placeholder="Klistra in partnerns kod här" />
+        <button onclick="joinRoom()">Anslut till partner</button>
+        <div id="error"></div>
+    </div>
+
+    <div id="roomId" class="hidden">
+        <h2>Dela denna kod med din partner:</h2>
+        <div style="font-size:52px;font-weight:800;color:#ff0066;letter-spacing:8px;margin:30px 0;" id="myId"></div>
+        <p class="pulse">Väntar på att partnern ska ansluta...</p>
+    </div>
+
+    <div id="waiting" class="hidden">
+        <h2>Ansluten! 🎉</h2>
+        <p class="pulse" style="font-size:24px;">Väntar på att båda valt kön...</p>
+    </div>
+
+    <div id="game" class="hidden">
+        <div class="level" id="currentLevel">MILD</div>
+        <div class="progress">
+            Gemensamma JA:<br>
+            <span style="color:#ff99cc;">Mild:</span> <b><span id="mildCount">0</span>/10</b><br>
+            <span style="color:#ff3366;">Hot:</span> <b><span id="hotCount">0</span>/5</b><br>
+            <span style="color:#ff0066;">Spicy:</span> <b><span id="spicyCount">0</span>/2</b>
+        </div>
+        <div class="dare" id="question">Laddar dare...</div>
+        <div id="waitingPartner" class="hidden">Väntar på partnerns svar...</div>
+        <button id="yesButton" class="big green" onclick="answer('ja')">JA, fan vad kåt 😈</button>
+        <button id="noButton" class="big red" onclick="answer('nej')">Nej, inte nu 🚫</button>
+    </div>
+
+    <div id="final" class="hidden">
+        <h1>GRATTIS! 🔥✨</h1>
+        <h2>Ni har låst upp den stora finalen!</h2>
+        <div class="finaldare" id="finalDare">Laddar ert öde...</div>
+        <button class="big" onclick="location.reload()">Spela igen från början</button>
+    </div>
+
+    <div class="footer">
+        Alltid 100% frivilligt • Safe word = STOPP • Inget sparas någonstans
+    </div>
+</div>
+
+<script>
+// DARES (samma som tidigare)
+const dares = {
+    mild: ["ge partnern en lång, sensuell kram i 2 minuter","pussa partnern på kinden 10 gånger","hålla handen och titta djupt i ögonen i 1 minut","massera partnerns axlar i 2 minuter","säga 3 saker du älskar med partnerns kropp","dansa tätt intill varandra i 1 minut","ge en mjuk puss på halsen","stryka partnern över håret i 1 minut","hålla om varandra utan att prata i 3 minuter","ge en komplimang varje 10:e sekund i 1 minut"],
+    hot: ["ta av ett plagg på partnern (valfritt)","ge en djup, passionerad kyss i minst 30 sekunder","kyss eller slick partnerns bröstvårtor","massera insidan av partnerns lår i 2 minuter","ta av underkläderna (på dig eller partnern)","suga lätt på partnerns fingrar medan ni tittar på varandra","gnugga er mot varandra med kläderna på i 1 minut","kyss partnerns mage ner mot skrevet (utan att gå hela vägen)","låt partnern styra dina händer vart som helst i 1 minut","ge en sensuell nackkyss medan du håller om bakifrån"],
+    spicy: ["ge partnern oralsex i minst 2 minuter","låt partnern använda en leksak på dig","ha sex i en ställning ni aldrig provat förut","69-positionen i minst 3 minuter","ha sex med ögonbindel på en av er","använd vibrator samtidigt som ni har sex","lätt spanking eller klösa under akten","ha sex mot en vägg eller i duschen","kom samtidigt – eller försök i alla fall!","dirty talk non-stop under hela akten"]
+};
+
+const finalDares = {
+    "kvinna-man": ["Han ska få henne att komma med mun + fingrar samtidigt – hon bestämmer takten","Hon rider honom långsamt tills han kommer inuti henne","Doggy med vibrator mot hennes klitoris tills hon skriker","Missionär med djup ögonkontakt och långsamma stötar tills båda kommer","Hon onanerar framför honom medan han slickar hennes bröst – sen tar han över"],
+    "man-kvinna": ["Hon ska suga och runka honom tills han kommer i hennes mun","Han tar henne bakifrån medan hon använder vibratorn","Hon sitter på hans ansikte tills hon kommer – minst två gånger","Cowgirl med hennes händer bundna löst med ett skärp","Intensiv doggy med hårdragning tills han kommer"],
+    "kvinna-kvinna": ["Scissoring med vibrator emellan tills båda kommer","69 med fingrar och tunga – först till orgasm vinner… eller förlorar?","En använder strap-on medan den andra har vibrator","Långsamt ansiktssittande med mycket ögonkontakt","Båda ligger på sidan och fingrar varandra samtidigt"],
+    "man-man": ["Djup oralsex tills en av er kommer","Ni runkar varandra samtidigt med mycket ögonkontakt","69 tills båda har kommit","Analt sex (med mycket glidmedel och förspel)","En rider den andra medan ni kysser passionerat"]
+};
+
+// VARIABLER
+let myGender = null, partnerGender = null;
+let peer = null, conn = null;
+let scores = { mild: 0, hot: 0, spicy: 0 };
+let currentLevel = "mild";
+let currentDares = [];
+let currentDare = '';
+let myChoice = null;
+let partnerChoice = null;
+
+// FUNKTIONER (samma logik som tidigare, med cloud-fix)
+function showError(msg) {
+    const el = document.getElementById('error');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 5000);
+}
+
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+function adaptDare(text) {
+    if (!partnerGender) return text;
+    return text
+        .replace(/partnern/g, partnerGender === "man" ? "honom" : "henne")
+        .replace(/partnerns/g, partnerGender === "man" ? "hans" : "hennes");
+}
+
+function setGender(g) {
+    myGender = g;
+    document.getElementById("genderSelect").classList.add("hidden");
+    document.getElementById("setup").classList.remove("hidden");
+    if (conn && conn.open) conn.send({ type: 'gender', gender: myGender });
+}
+
+function createRoom() {
+    // Officiell gratis cloud (funkar 2025, ingen key för basic)
+    peer = new Peer(undefined, {
+        host: '0.peerjs.com',
+        port: 443,
+        secure: true,
+        path: '/peerjs',
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+    });
+    peer.on('open', id => {
+        document.getElementById('myId').innerText = id;
+        document.getElementById('setup').classList.add("hidden");
+        document.getElementById('roomId').classList.remove("hidden");
+    });
+    peer.on('error', err => showError('Server-fel: ' + err.type + '. Prova igen eller använd annan browser.'));
+    setupConnectionListener();
+}
+
+function joinRoom() {
+    const id = document.getElementById('peerIdInput').value.trim();
+    if (!id) return alert("Klistra in koden!");
+    peer = new Peer(undefined, {
+        host: '0.peerjs.com',
+        port: 443,
+        secure: true,
+        path: '/peerjs',
+        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+    });
+    peer.on('open', () => {
+        conn = peer.connect(id);
+        setupConnEvents();
+        document.getElementById('setup').classList.add("hidden");
+        document.getElementById('roomId').classList.remove("hidden");
+        document.getElementById('myId').innerText = "Ansluter...";
+    });
+    peer.on('error', err => showError('Anslutningsfel: ' + err.type));
+}
+
+function setupConnectionListener() {
+    peer.on('connection', c => {
+        conn = c;
+        setupConnEvents();
+        document.getElementById('roomId').classList.add("hidden");
+        document.getElementById('waiting').classList.remove("hidden");
+    });
+}
+
+function setupConnEvents() {
+    conn.on('open', () => {
+        conn.send({ type: 'gender', gender: myGender });
+        document.getElementById('roomId').classList.add("hidden");
+        document.getElementById('waiting').classList.remove("hidden");
+    });
+
+    conn.on('data', data => {
+        if (data.type === 'gender') {
+            partnerGender = data.gender;
+            if (myGender && partnerGender) startGame();
+        }
+        if (data.type === 'answer' && data.dare === currentDare) {
+            partnerChoice = data.choice;
+            checkIfBothAnswered();
+        }
+    });
+}
+
+function startGame() {
+    document.getElementById('waiting').classList.add('hidden');
+    document.getElementById('game').classList.remove('hidden');
+    loadNewDare();
+}
+
+function updateScoreDisplay() {
+    document.getElementById('mildCount').innerText = scores.mild;
+    document.getElementById('hotCount').innerText = scores.hot;
+    document.getElementById('spicyCount').innerText = scores.spicy;
+}
+
+function checkLevelProgress() {
+    if (scores.mild >= 10) currentLevel = "hot";
+    if (scores.hot >= 5) currentLevel = "spicy";
+    if (scores.spicy >= 2) return showFinal();
+    document.getElementById('currentLevel').innerText = currentLevel.toUpperCase();
+    return false;
+}
+
+function loadNewDare() {
+    if (checkLevelProgress()) return;
+
+    myChoice = null;
+    partnerChoice = null;
+
+    if (currentDares.length === 0) {
+        currentDares = dares[currentLevel].map(d => adaptDare(d));
+        shuffleArray(currentDares);
+    }
+
+    currentDare = currentDares.pop();
+    document.getElementById('question').textContent = currentDare;
+    document.getElementById('waitingPartner').classList.add('hidden');
+    document.getElementById('yesButton').disabled = false;
+    document.getElementById('noButton').disabled = false;
+}
+
+function answer(choice) {
+    if (myChoice !== null) return;
+
+    myChoice = choice;
+    conn.send({ type: 'answer', dare: currentDare, choice });
+
+    document.getElementById('yesButton').disabled = true;
+    document.getElementById('noButton').disabled = true;
+    document.getElementById('waitingPartner').classList.remove('hidden');
+
+    checkIfBothAnswered();
+}
+
+function checkIfBothAnswered() {
+    if (myChoice !== null && partnerChoice !== null) {
+        if (myChoice === 'ja' && partnerChoice === 'ja') {
+            scores[currentLevel]++;
+            updateScoreDisplay();
+        }
+        setTimeout(loadNewDare, 1000);
+    }
+}
+
+function showFinal() {
+    document.getElementById('game').classList.add('hidden');
+    document.getElementById('final').classList.remove('hidden');
+
+    const key = myGender + "-" + partnerGender;
+    const fallbackKey = partnerGender + "-" + myGender;
+    const list = finalDares[key] || finalDares[fallbackKey] || finalDares["kvinna-man"];
+    const final = list[Math.floor(Math.random() * list.length)];
+
+    document.getElementById('finalDare').textContent = final;
+}
+
+// Cleanup
+window.addEventListener('beforeunload', () => { if (peer) peer.destroy(); });
+</script>
+</body>
+</html>
